@@ -1,0 +1,100 @@
+
+- name: Play1-Update package manager and install necessary packages
+  hosts: ec2
+  tasks:
+    - name: update package manager
+      yum:
+        update_cache: yes
+        name: "*"
+        state: latest
+    - name: Install OpenJDK 17
+      yum:
+        name: java-17-openjdk-devel.x86_64
+        state: latest
+    - name: Install net-tools
+      yum:
+        name: net-tools
+        state: latest
+
+- name: play2 - Install and Unpack tarfile
+  hosts: ec2
+  tasks:
+   - name: check if tarfile already exists
+     stat:
+      path: /opt/nexus
+     register: stat_result
+   - name: Download nexus
+     get_url:
+      url: https://download.sonatype.com/nexus/3/latest-unix.tar.gz
+      dest: /opt/
+     register: download_results 
+   - name: Untar nexus tarfile
+     unarchive:
+      src: "{{download_results.dest}}"
+      dest: /opt/
+      remote_src: yes
+     when: not stat_result.stat.exists
+   - name: find nexus folder   # Finding a file or directory
+     find:
+      paths: /opt/
+      pattern: "nexus-*"
+      file_type: directory
+     register: find_result
+   - name: rename nexus folder
+     shell: mv {{find_result.files[0].path}} /opt/nexus
+     when: not stat_result.stat.exists
+      
+- name: play3 - Add nexus user to own nexus folders
+  hosts: ec2
+  tasks: 
+   - name: Create nexus group
+     group:
+      name: Admin
+      state: present
+   - name: add user nexus
+     user: 
+      name: nexus
+      group: Admin
+      state: present
+   - name: change ownership of nexus directory
+     file:
+       path: /opt/nexus
+       state: directory
+       owner: nexus
+       group: Admin
+       recurse: yes
+   - name: change ownership of sonartype-work directory
+     file:
+      path: /opt/sonatype-work
+      state: directory
+      owner: nexus
+      group: Admin
+      recurse: yes
+    
+- name: start nexus with nexus user
+  hosts: ec2
+  become: True
+  become_user: nexus
+  tasks:
+   - name: set run_as_nexus and run as nexus
+     lineinfile:                      #ALT blockinfile 
+      path: /opt/nexus/bin/nexus.rc
+      regexp: '^#run_as_user=""'  
+      line: run_as_user="nexus"
+   - name: start nexus
+     command: /opt/nexus/bin/nexus start
+    
+   - name: check if nexus is working
+     shell: ps -aux | grep nexus
+     register: nexus_state
+   - debug: msg={{nexus_state}}
+   - name: wait for one 1 min for port 8010 to open
+     pause:
+      minutes: 1 
+   - name: check for network values
+     shell: netstat -plnt
+     register: netstat_output
+   - debug: msg={{netstat_output}}
+      
+      
+      
