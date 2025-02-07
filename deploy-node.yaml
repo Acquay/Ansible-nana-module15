@@ -1,0 +1,53 @@
+
+---
+- name: Install Node.js and npm
+  hosts: ec2
+  tasks:
+    - name: Update yum repo and cache
+      yum: 
+        update_cache: yes
+        
+
+- name: Create new linux user for running the application
+  hosts: ec2
+  tasks:
+   - name: create new admin group
+     group:
+      name: admin
+      state: present
+   - name: create new user and add to admin group
+     user:
+      name: "{{name}}"
+      group: admin
+
+- name: Deploy Node.js application
+  hosts: ec2
+  become: True
+  become_user: "{{name}}"
+  vars:
+   destination: "/home/{{name}}"
+  tasks:
+    - name: Download the archive from repo
+      get_url:
+       url: https://gitlab.com/twn-devops-bootcamp/latest/15-ansible/nodejs-app/-/blob/main/nodejs-app-1.0.0
+       dest: {{destination}}
+    - name: Unpack the tar file
+      unarchive:
+       src: "{{destination}}"
+       dest: "{{destination}}"
+       remote_src: yes
+    - name: Install dependencies
+      npm:
+       path: "{{destination}}/package"
+    - name: Start the application 
+      command:
+       chdir: "{{destination}}/package/app"
+       cmd: node server 
+      async: 1000
+      poll: 0
+    
+    - name: ensure the app is running
+      shell:
+       ps -aux | grep node
+      register: app-status
+    - debug: msg{{app-status.stdout_lines}}

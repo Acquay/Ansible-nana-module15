@@ -1,0 +1,12 @@
+[ec2]
+3.85.13.76 ansible_python_interpreter=/usr/bin/python3
+
+[ec2:vars]
+ansible_ssh_private_key_file=/home/bootcamp/Ansible/nodejs-app/ansible-key
+ansible_user=ec2-user
+ansible_become=true
+ansible_become_method=sudo
+
+
+
+
