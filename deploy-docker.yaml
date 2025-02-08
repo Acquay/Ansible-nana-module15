@@ -1,0 +1,60 @@
+- name: update dnf repo
+  hosts: ec2
+  become: yes
+  tasks:
+   - name: update dnf
+     update_cache: yes
+     dnf:
+      name: "*"
+      state: latest
+   -      
+- name: Deploy Docker
+  hosts: ec2
+  become: yes
+  tasks:
+    - name: Install Docker
+      dnf:
+        name: docker
+        update_cache: yes
+        state: present
+- name: start docker 
+  hosts: ec2
+  tasks:
+   - name: start the intalled docker daemon
+     shell:
+      systemctl start docker 
+   
+
+- name: Install Docker Compose
+  hosts: ec2
+  become: yes
+  tasks:
+    - name: Create directory for Docker Compose
+      file:
+        path: ~/.docker/cli-plugins
+        state: directory
+
+    - name: Get the Linux architecture of the remote host
+      shell: uname -m
+      register: uname_output
+
+    - debug:
+        msg: "{{ uname_output.stdout }}"
+
+    - name: Fetch latest Docker Compose release information
+      uri:
+        url: https://api.github.com/repos/docker/compose/releases/latest
+        return_content: yes
+      register: release_info
+
+    - name: Set Docker Compose version
+      set_fact:
+        compose_version: "{{ release_info.json.tag_name }}"
+
+    - name: Download Docker Compose
+      get_url:
+        url: "https://github.com/docker/compose/releases/download/{{ compose_version }}/docker-compose-linux-{{ uname_output.stdout }}"
+        dest: ~/.docker/cli-plugins/docker-compose
+        mode: +x
+
+ 
