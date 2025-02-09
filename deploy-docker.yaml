@@ -1,30 +1,32 @@
-- name: update dnf repo
+- name: Docker Deployment by Ansible method
   hosts: ec2
   become: yes
   tasks:
-   - name: update dnf
-     update_cache: yes
+   - name: update dnf repo 
      dnf:
+      update_cache: yes
       name: "*"
-      state: latest
-   -      
-- name: Deploy Docker
+      state: latest     
+- name: Install and execute docker 
   hosts: ec2
   become: yes
   tasks:
     - name: Install Docker
       dnf:
         name: docker
-        update_cache: yes
         state: present
-- name: start docker 
+    - name: start docker 
+      service:
+       name: docker 
+       state: started
+- name: Add ec2-user to docker group
   hosts: ec2
   tasks:
-   - name: start the intalled docker daemon
-     shell:
-      systemctl start docker 
-   
-
+   - name: adding ec2-user to docker 
+     user:
+      name: ec2-user
+      groups: docker
+      append: yes 
 - name: Install Docker Compose
   hosts: ec2
   become: yes
